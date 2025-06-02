@@ -1,0 +1,3 @@
+[submodule "Paresy-Original"]
+	path = Paresy-Original
+	url = https://github.com/MojtabaValizadeh/paresy.git

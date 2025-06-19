@@ -1,12 +1,14 @@
 #ifndef REGEX_MATCH_HPP
 #define REGEX_MATCH_HPP
 
-#include <iostream>
 #include <string>
 #include <memory>
-#include <set>
+#include <stdexcept>
 
-using namespace std;
+using std::string;
+using std::shared_ptr;
+using std::make_shared;
+using std::runtime_error;
 
 class Regex {
 public:
@@ -17,154 +19,62 @@ public:
 class Char : public Regex {
     char c;
 public:
-    Char(char c) : c(c) {}
-    bool match(const string& word) const override {
-        return word.size() == 1 && word[0] == c;
-    }
+     Char(char c);
+     bool match(const string& word) const override;
 };
 
 class Or : public Regex {
     shared_ptr<Regex> left, right;
 public:
-    Or(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
-    bool match(const string& word) const override {
-        return left->match(word) || right->match(word);
-    }
+     Or(shared_ptr<Regex> l, shared_ptr<Regex> r);
+     bool match(const string& word) const override;
 };
 
 class And : public Regex {
     shared_ptr<Regex> left, right;
 public:
-    And(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
-    bool match(const string& word) const override {
-        return left->match(word) && right->match(word);
-    }
+     And(shared_ptr<Regex> l, shared_ptr<Regex> r);
+     bool match(const string& word) const override;
 };
 
 class Star : public Regex {
     shared_ptr<Regex> node;
 public:
-    Star(shared_ptr<Regex> n) : node(n) {}
-    bool match(const string& word) const override {
-        for (size_t i = 1; i <= word.size(); ++i) {
-            string prefix = word.substr(0, i);
-            string suffix = word.substr(i);
-            if (node->match(prefix)) {
-                if (suffix.empty() || this->match(suffix)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+     Star(shared_ptr<Regex> n);
+     bool match(const string& word) const override;
 };
 
 class Optional : public Regex {
     shared_ptr<Regex> node;
 public:
-    Optional(shared_ptr<Regex> n) : node(n) {}
-    bool match(const string& word) const override {
-        return word.empty() || node->match(word);
-    }
+     Optional(shared_ptr<Regex> n);
+     bool match(const string& word) const override;
 };
 
 class Concat : public Regex {
     shared_ptr<Regex> left, right;
 public:
-    Concat(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
-    bool match(const string& word) const override {
-        for (size_t i = 0; i <= word.size(); ++i) {
-            string leftPart = word.substr(0, i);
-            string rightPart = word.substr(i);
-            if (left->match(leftPart) && right->match(rightPart)) {
-                return true;
-            }
-        }
-        return false;
-    }
+     Concat(shared_ptr<Regex> l, shared_ptr<Regex> r);
+     bool match(const string& word) const override;
 };
 
 class Parser {
     string regex;
     size_t pos;
 
-    char peek() {
-        return pos < regex.size() ? regex[pos] : '\0';
-    }
-
-    char get() {
-        return regex[pos++];
-    }
-
-    shared_ptr<Regex> parseOr() {
-        shared_ptr<Regex> node = parseIntersection();
-        while (peek() == '+') {
-            get();
-            shared_ptr<Regex> right = parseIntersection();
-            node = make_shared<Or>(node, right);
-        }
-        return node;
-    }
-
-    shared_ptr<Regex> parseIntersection() {
-        shared_ptr<Regex> node = parseConcat();
-        while (peek() == '&') {
-            get();
-            shared_ptr<Regex> right = parseConcat();
-            node = make_shared<And>(node, right);
-        }
-        return node;
-    }
-
-    shared_ptr<Regex> parseConcat() {
-        shared_ptr<Regex> node = parseFactor();
-        while (true) {
-            char c = peek();
-            // we keep consuming if the next token is valid
-            if (c == '\0' || c == ')' || c == '+' || c == '&') break;
-
-            shared_ptr<Regex> next = parseFactor();
-            node = make_shared<Concat>(node, next);
-        }
-        return node;
-    }
-
-    // Parse factors (* ?)
-    shared_ptr<Regex> parseFactor() {
-        shared_ptr<Regex> node = parseBase();
-        while (peek() == '*' || peek() == '?') {
-            char op = get();
-            if (op == '*') node = make_shared<Star>(node);
-            else if (op == '?') node = make_shared<Optional>(node);
-        }
-        return node;
-    }
-
-    // Parse base (grouping or character)
-    shared_ptr<Regex> parseBase() {
-        if (peek() == '(') {
-            get();
-            shared_ptr<Regex> node = parseOr();
-            if (get() != ')') throw runtime_error("Missing ')'");
-            return node;
-        }
-        else {
-            char c = get();
-            return make_shared<Char>(c);
-        }
-    }
+     char peek();
+     char get();
+     shared_ptr<Regex> parseOr();
+     shared_ptr<Regex> parseIntersection();
+     shared_ptr<Regex> parseConcat();
+     shared_ptr<Regex> parseFactor();
+     shared_ptr<Regex> parseBase();
 
 public:
-    Parser(const string& s) : regex(s), pos(0) {}
-    shared_ptr<Regex> parse() {
-        return parseOr();
-    }
+     Parser(const string& s);
+     shared_ptr<Regex> parse();
 };
 
-bool match(const string& pattern, const string& word) {
-    Parser parser(pattern);
-    shared_ptr<Regex> tree = parser.parse();
-    return tree->match(word);
-}
+ bool match(const string& pattern, const string& word);
 
 #endif

@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
     // Reading the input
     // -----------------
 
-#ifdef USER_INPUT
+#if USER_INPUT
 
     if (argc != 9) {
         printf("Arguments should be in the form of\n");
@@ -47,25 +47,25 @@ int main(int argc, char* argv[]) {
 
     std::string text = R"(
 ++
-"1011"
+"0111"
+"10011"
 "0011"
-"1100"
 "000"
-"0100"
+""
+"1001"
+"01110"
+"1101"
+--
+"0"
+"00000"
+"1"
+"10"
 "101"
 "1010"
-"11"
---
-""
-"0"
-"01"
-"011"
-"1"
-"100"
-"1001"
+"10101"
+"10111"
 "1110"
-"1111"
-    )";
+)";
 
     unsigned short* costFun = new unsigned short[6];
     costFun[0] = 1;
@@ -81,18 +81,18 @@ int main(int argc, char* argv[]) {
 
 #endif
 
-
     // ----------------------------------
     // Regular Expression Inference (REI)
     // ----------------------------------
 
-#ifdef MEASUREMENT_MODE
+#if MEASUREMENT_MODE
     auto start = std::chrono::high_resolution_clock::now();
 #endif
 
     auto result = detSplit(8, costFun, maxCost, pos, neg);
+    //auto result = REI(costFun, maxCost, pos, neg).RE;
 
-#ifdef MEASUREMENT_MODE
+#if MEASUREMENT_MODE
     auto stop = std::chrono::high_resolution_clock::now();
 #endif
 
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
     printf("\nNegative: "); for (const auto& n : neg) printf("\"%s\" ", n.c_str());
     printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u \"&\"=%u",
         costFun[0], costFun[1], costFun[2], costFun[3], costFun[4], costFun[5]);
-#ifdef MEASUREMENT_MODE
+#if MEASUREMENT_MODE
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
     printf("\nRunning Time: %f s", (double)duration * 0.000001);
 #endif

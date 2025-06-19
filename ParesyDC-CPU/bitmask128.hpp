@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iostream>
 #include <iomanip>
+#include <functional>
 
 #ifdef __CUDACC__
     #define HD __host__ __device__
@@ -18,17 +19,24 @@ struct alignas(16) bitmask128 {
     // Constructors
     HD bitmask128() : low(0), high(0) {}
     HD bitmask128(uint64_t h, uint64_t l) : low(l), high(h) {}
-    HD bitmask128(int value) : low(static_cast<uint64_t>(value)), high(0) {}
-    HD bitmask128(uint64_t value) : low(value), high(0) {}
+    HD explicit bitmask128(size_t value) : low(value), high(0) {}
 
     // Bitwise OR
     HD inline bitmask128 operator|(const bitmask128& other) const {
         return bitmask128(high | other.high, low | other.low);
     }
 
+    HD inline bitmask128 operator|(const size_t& other) const {
+        return bitmask128(high, low | other);
+    }
+
     // Bitwise AND
     HD inline bitmask128 operator&(const bitmask128& other) const {
         return bitmask128(high & other.high, low & other.low);
+    }
+
+    HD inline bitmask128 operator&(const size_t& other) const {
+        return bitmask128(high, low & other);
     }
 
     // Bitwise OR assignment
@@ -38,10 +46,20 @@ struct alignas(16) bitmask128 {
         return *this;
     }
 
+    HD bitmask128& operator|=(const size_t& other) {
+        low |= other;
+        return *this;
+    }
+
     // Bitwise AND assignment
     HD bitmask128& operator&=(const bitmask128& other) {
         high &= other.high;
         low &= other.low;
+        return *this;
+    }
+
+    HD bitmask128& operator&=(const size_t& other) {
+        low &= other;
         return *this;
     }
 
@@ -70,6 +88,44 @@ struct alignas(16) bitmask128 {
         return bitmask128(newHigh, newLow);
     }
 
+    HD bitmask128& operator<<=(int shift) {
+        if (shift == 0) {
+            return *this;
+        }
+        else if (shift >= 128) {
+            high = 0;
+            low = 0;
+        }
+        else if (shift >= 64) {
+            high = low << (shift - 64);
+            low = 0;
+        }
+        else {
+            high = (high << shift) | (low >> (64 - shift));
+            low <<= shift;
+        }
+        return *this;
+    }
+
+    HD bitmask128& operator>>=(int shift) {
+        if (shift == 0) {
+            return *this;
+        }
+        else if (shift >= 128) {
+            high = 0;
+            low = 0;
+        }
+        else if (shift >= 64) {
+            low = high >> (shift - 64);
+            high = 0;
+        }
+        else {
+            low = (low >> shift) | (high << (64 - shift));
+            high >>= shift;
+        }
+        return *this;
+    }
+
     // Comparison
     HD bool operator==(const bitmask128& other) const {
         return high == other.high && low == other.low;
@@ -83,7 +139,6 @@ struct alignas(16) bitmask128 {
         return high != 0 || low != 0;
     }
 
-    // Output
     friend inline std::ostream& operator<<(std::ostream& os, const bitmask128& mask) {
         /*for (int i = 63; i >= 0; --i) {
             os << ((mask.high >> i) & 1);
@@ -97,5 +152,16 @@ struct alignas(16) bitmask128 {
         return os;
     }
 };
+
+namespace std {
+    template <>
+    struct hash<bitmask128> {
+        std::size_t operator()(const bitmask128& s) const {
+            std::size_t h1 = std::hash<uint64_t>{}(s.low);
+            std::size_t h2 = std::hash<uint64_t>{}(s.high);
+            return h1 ^ (h2 << 1);
+        }
+    };
+}
 
 #endif // BITMASK128_HPP

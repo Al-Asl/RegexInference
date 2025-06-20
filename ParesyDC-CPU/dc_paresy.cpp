@@ -2,7 +2,7 @@
 
 #include <set>
 #include <algorithm>
-#include <rei.hpp>
+#include <gpu126.h>
 #include <regex_match.hpp>
 
 using namespace std;
@@ -63,7 +63,10 @@ using namespace std;
 }
 
  string detSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
-    const vector<string>& pos, const vector<string>& neg) {
+    const vector<string>& pos, const vector<string>& neg, RecursiveProfileInfo& profileInfo) {
+
+     profileInfo.enter();
+
     if (pos.size() + neg.size() <= static_cast<size_t>(window)) {
         string output = REI(costFun, maxCost, pos, neg).RE;
         if (output != "not_found") return output;
@@ -72,7 +75,9 @@ using namespace std;
     auto [p1, p2] = midSplit(pos);
     auto [n1, n2] = midSplit(neg);
 
-    string r11 = detSplit(window, costFun, maxCost, p1, n1);
+    string r11 = detSplit(window, costFun, maxCost, p1, n1, profileInfo);
+    profileInfo.exit();
+
     auto r11FilterOnP2 = match(p2, r11);
     auto r11FilterOnN2 = match(n2, r11);
 
@@ -87,7 +92,9 @@ using namespace std;
     }
     else {
         vector<string> n2Andr11 = select(n2, r11FilterOnN2);
-        string r12 = detSplit(window, costFun, maxCost, p1, n2Andr11);
+        string r12 = detSplit(window, costFun, maxCost, p1, n2Andr11, profileInfo);
+        profileInfo.exit();
+
         vector<string> negMinusN2Andr11 = subtract(neg, n2Andr11);
 
         if (matchesNone(negMinusN2Andr11, r12))
@@ -101,7 +108,9 @@ using namespace std;
     auto leftFilterOnP2 = match(p2, left);
     vector<string> p2MinusLeft = selectInverse(p2, leftFilterOnP2);
 
-    string r21 = detSplit(window, costFun, maxCost, p2MinusLeft, n1);
+    string r21 = detSplit(window, costFun, maxCost, p2MinusLeft, n1, profileInfo);
+    profileInfo.exit();
+
     vector<string> p1MinusP2MinusLeft = subtract(pos, p2MinusLeft);
 
     auto r21FilterOnP1 = match(p1MinusP2MinusLeft, r21);
@@ -118,7 +127,9 @@ using namespace std;
     }
     else {
         vector<string> n2Andr21 = select(n2, r21FilterOnN2);
-        string r22 = detSplit(window, costFun, maxCost, p2MinusLeft, n2Andr21);
+        string r22 = detSplit(window, costFun, maxCost, p2MinusLeft, n2Andr21, profileInfo);
+        profileInfo.exit();
+
         vector<string> negMinusN2Andr21 = subtract(neg, n2Andr21);
 
         if (matchesNone(negMinusN2Andr21, r22)) {

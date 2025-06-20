@@ -5,7 +5,11 @@ project(ParesyDC LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-add_definitions(-DMEASUREMENT_MODE=0)
+# 0 : measurement
+# 1 : log
+# 2 : benchmark
+add_definitions(-DMODE=2)
+# only used if the mode is not set to benchmark, this is used for quick testing to write examples inside the editor
 add_definitions(-DUSER_INPUT=0)
 
 set(SOURCES
@@ -23,3 +27,6 @@ regex_match.cpp
 add_executable(${PROJECT_NAME} main.cpp ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+
+# Set the startup project for Visual Studio
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})

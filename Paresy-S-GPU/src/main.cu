@@ -6,20 +6,19 @@
 
 namespace fs = std::filesystem;
 
-#include "bitMask128.hpp"
-#include "dc_paresy.hpp"
+#include "rei_dc.hpp"
 #include "rei_util.hpp"
 
 int runOnDirectory(int argc, char* argv[])
 {
-    if (argc != 9) {
+    if (argc != 10) {
         printf("Arguments should be in the form of\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s <dir_address> <window_size> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
+        printf("%s <input_dir_address> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         printf("\nFor example\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s ./input 12 1 1 1 1 1 500\n", argv[0]);
+        printf("%s ./input 12 60 1 1 1 1 1 500\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         return 0;
     }
@@ -34,11 +33,12 @@ int runOnDirectory(int argc, char* argv[])
     if (argError) return 0;
 
     unsigned short window_size = std::atoi(argv[2]);
+    unsigned short max_time = std::atoi(argv[3]);
 
     unsigned short costFun[5];
     for (int i = 0; i < 5; i++)
-        costFun[i] = std::atoi(argv[i + 3]);
-    unsigned short maxCost = std::atoi(argv[8]);
+        costFun[i] = std::atoi(argv[i + 4]);
+    unsigned short maxCost = std::atoi(argv[9]);
 
     std::vector<fs::path> files;
     try {
@@ -68,7 +68,7 @@ int runOnDirectory(int argc, char* argv[])
         auto profileInfo = paresy_s::RecursiveProfileInfo();
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, profileInfo);
+        auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
         auto stop = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
@@ -89,15 +89,15 @@ int runOnFile(int argc, char* argv[])
 // Reading the input
 // -----------------
 
-#ifndef USER_INPUT
-    if (argc != 9) {
+#ifndef HARD_CODED_INPUT
+    if (argc != 10) {
         printf("Arguments should be in the form of\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s <dir_address> <window_size> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
+        printf("%s <dir_address> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         printf("\nFor example\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s ./input 12 1 1 1 1 1 500\n", argv[0]);
+        printf("%s ./input 12 60 1 1 1 1 1 500\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         return 0;
     }
@@ -113,35 +113,42 @@ int runOnFile(int argc, char* argv[])
 
     std::string fileName = argv[1];
     std::vector<std::string> pos, neg;
-    if (!readFile(fileName, pos, neg)) return 0;
+    if (!paresy_s::readFile(fileName, pos, neg)) return 0;
 
     unsigned short window_size = std::atoi(argv[2]);
+    unsigned short max_time = std::atoi(argv[3]);
 
     unsigned short costFun[5];
     for (int i = 0; i < 5; i++)
-        costFun[i] = std::atoi(argv[i + 3]);
-    unsigned short maxCost = std::atoi(argv[8]);
+        costFun[i] = std::atoi(argv[i + 4]);
+    unsigned short maxCost = std::atoi(argv[9]);
 #else
 
     std::string text = R"(
 ++
+"00"
 "0111"
-"10011"
-"0011"
+"110"
+"1100"
 "000"
-""
-"1001"
-"01110"
-"1101"
---
 "0"
-"00000"
+"1000"
+"1101"
+"0101"
+"11"
+"010"
+--
+""
+"0000"
+"0001"
+"01"
+"0100"
+"011"
 "1"
-"10"
+"100"
 "101"
-"1010"
-"10101"
-"10111"
+"1011"
+"111"
 )";
 
     unsigned short* costFun = new unsigned short[5];
@@ -151,7 +158,8 @@ int runOnFile(int argc, char* argv[])
     costFun[3] = 1;
     costFun[4] = 1;
     const unsigned short maxCost = 500;
-    const unsigned short window_size = 20;
+    const unsigned short window_size = 100;
+    double max_time = 60;
 
     std::vector<std::string> pos, neg;
     if (!paresy_s::readStream(std::istringstream(text), pos, neg)) return 0;
@@ -163,16 +171,12 @@ int runOnFile(int argc, char* argv[])
     // Regular Expression Inference (REI)
     // ----------------------------------
 
-#ifdef MEASUREMENT_MODE
     auto start = std::chrono::high_resolution_clock::now();
-#endif
 
     paresy_s::RecursiveProfileInfo profileInfo;
-    auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, profileInfo);
+    auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
 
-#ifdef MEASUREMENT_MODE
     auto stop = std::chrono::high_resolution_clock::now();
-#endif
 
     // -------------------
     // Printing the output
@@ -183,10 +187,8 @@ int runOnFile(int argc, char* argv[])
     printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u",
         costFun[0], costFun[1], costFun[2], costFun[3], costFun[4]);
     printf("\nCall count: %d, Max depth: %d\n", profileInfo.callCount, profileInfo.maxDepth);
-#ifdef MEASUREMENT_MODE
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
     printf("\nRunning Time: %f s", (double)duration * 0.000001);
-#endif
     printf("\n\nRE: \"%s\"\n", result.c_str());
 
     return 0;

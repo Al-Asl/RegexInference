@@ -1,5 +1,5 @@
-#ifndef DC_PARESY_HPP
-#define DC_PARESY_HPP
+#ifndef REI_DC_HPP
+#define REI_DC_HPP
 
 #include <vector>
 #include <string>
@@ -27,8 +27,8 @@ namespace paresy_s {
 
     // Main recursive function
     std::string detSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
-        const std::vector<std::string>& pos, const std::vector<std::string>& neg, RecursiveProfileInfo& profileInfo);
+        const std::vector<std::string>& pos, const std::vector<std::string>& neg, double maxTime, RecursiveProfileInfo& profileInfo);
 
 }
 
-#endif //DC_PARESY_HPP
+#endif //REI_DC

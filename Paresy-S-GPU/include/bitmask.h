@@ -41,6 +41,10 @@ namespace paresy_s
         }
 
         HD Pair<uint64_t> get128Hash() const {
+
+            if (N == 2) 
+            { return { data[1], data[0] }; }
+
             uint64_t lCS = 0, hCS = 0;
 #if RELAX_UNIQUENESS_CHECK_TYPE == 0
             const int stride = (N * 64) / 126;
@@ -96,7 +100,7 @@ namespace paresy_s
             }
 #endif
 
-            return Pair<uint64_t>(hCS, lCS);
+            return { hCS, lCS };
         }
 
         HD bitmask operator|(const bitmask& other) const {
@@ -106,6 +110,7 @@ namespace paresy_s
             }
             return bitmask(vals);
         }
+
         HD bitmask& operator|=(const bitmask& other) {
             for (size_t i = 0; i < N; ++i) {
                 data[i] |= other.data[i];
@@ -120,6 +125,7 @@ namespace paresy_s
             }
             return bitmask(vals);
         }
+
         HD bitmask& operator&=(const bitmask& other) {
             for (size_t i = 0; i < N; ++i) {
                 data[i] &= other.data[i];
@@ -263,12 +269,12 @@ namespace paresy_s
         }
 
         HD inline operator bool() const {
-            for (size_t i = 0; i < N; ++i)
-            {
+            for (size_t i = 0; i < N; ++i) {
                 if (data[i] != 0) { return true; }
             }
             return false;
         }
+
         HD inline bool operator!() const {
             return !static_cast<bool>(*this);
         }

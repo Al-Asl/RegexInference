@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(ParesyDC LANGUAGES CXX)
+project(Paresy-S LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -8,7 +8,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # 0 : measurement
 # 1 : log
 # 2 : benchmark
-add_definitions(-DMODE=2)
+add_definitions(-DMODE=1)
 # only used if the mode is not set to benchmark, this is used for quick testing to write examples inside the editor
 add_definitions(-DUSER_INPUT=0)
 

@@ -19,7 +19,7 @@ namespace paresy_s
         }
     };
 
-    Result REI(const unsigned short* costFun, const unsigned short maxCost, const std::vector<std::string>& pos, const std::vector<std::string>& neg);
+    Result REI(const unsigned short* costFun, const unsigned short maxCost, const std::vector<std::string>& pos, const std::vector<std::string>& neg, double maxTime);
 }
 
 #endif // REI_HPP

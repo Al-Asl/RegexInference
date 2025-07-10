@@ -2,7 +2,7 @@
 
 #include <set>
 #include <algorithm>
-#include <gpu126.h>
+#include <rei.hpp>
 #include <regex_match.hpp>
 
 using namespace std;

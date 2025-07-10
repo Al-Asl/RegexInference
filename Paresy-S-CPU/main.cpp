@@ -89,14 +89,14 @@ int runOnFile(int argc, char* argv[])
     // -----------------
 
 #if USER_INPUT
-    if (argc != 9) {
+    if (argc != 10) {
         printf("Arguments should be in the form of\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s <dir_address> <window_size> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
+        printf("%s <dir_address> <window_size> <c1> <c2> <c3> <c4> <c5> <c6> <maxCost>\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         printf("\nFor example\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s ./input 12 1 1 1 1 1 500\n", argv[0]);
+        printf("%s ./input 12 1 1 1 1 1 1 500\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         return 0;
     }
@@ -116,38 +116,42 @@ int runOnFile(int argc, char* argv[])
 
     unsigned short window_size = std::atoi(argv[2]);
 
-    unsigned short costFun[5];
-    for (int i = 0; i < 5; i++)
+    unsigned short costFun[6];
+    for (int i = 0; i < 6; i++)
         costFun[i] = std::atoi(argv[i + 3]);
     unsigned short maxCost = std::atoi(argv[8]);
 #else
 
     std::string text = R"(
 ++
+"0111"
+"10011"
+"0011"
+"000"
+""
+"1001"
+"01110"
+"1101"
+--
+"0"
+"00000"
+"1"
 "10"
 "101"
-"100"
 "1010"
-"1011"
-"1000"
-"1001"
---
-""
-"0"
-"1"
-"00"
-"11"
-"010"
-    )";
+"10101"
+"10111"
+)";
 
-    unsigned short* costFun = new unsigned short[5];
+    unsigned short* costFun = new unsigned short[6];
     costFun[0] = 1;
     costFun[1] = 1;
-    costFun[2] = 1;
-    costFun[3] = 1;
+    costFun[2] = 100;
+    costFun[3] = 100;
     costFun[4] = 1;
+    costFun[5] = 100;
     const unsigned short maxCost = 500;
-    const unsigned short window_size = 12;
+    const unsigned short window_size = 14;
 
     std::vector<std::string> pos, neg;
     if (!readStream(std::istringstream(text), pos, neg)) return 0;
@@ -176,8 +180,8 @@ int runOnFile(int argc, char* argv[])
 
     printf("\nPositive: "); for (const auto& p : pos) printf("\"%s\" ", p.c_str());
     printf("\nNegative: "); for (const auto& n : neg) printf("\"%s\" ", n.c_str());
-    printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u",
-        costFun[0], costFun[1], costFun[2], costFun[3], costFun[4]);
+    printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u, \"&\"=%u",
+        costFun[0], costFun[1], costFun[2], costFun[3], costFun[4], costFun[5]);
     printf("\nCall count: %d, Max depth: %d\n", profileInfo.callCount, profileInfo.maxDepth);
 #if MODE == 0
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();

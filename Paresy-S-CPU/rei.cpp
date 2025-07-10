@@ -7,7 +7,7 @@
 
 #define UINT128 bitmask128
 
-#if ! MEASUREMENT_MODE
+#ifdef MODE
 #define LOG_OP(context, cost, op_string, dif) \
         int tbc = dif; \
         if (tbc) printf("Cost %-2d | (%s) | AllREs: %-11lu | StoredREs: %-10d | ToBeChecked: %-10d \n", \
@@ -349,7 +349,7 @@ public:
         visited.insert((UINT128)1); // int(CS of empty) is 1
 
         // Checking the alphabet
-        UINT128 idx = (UINT128)2; // Pointing to the position of the first char of the alphabet (idx 0 is for epsilon)
+        UINT128 idx = (UINT128)2; // Pointing to the position of the first char of the alphabet (idx 1 is for epsilon)
         auto alphabetSize = static_cast<int> (alphabet.size());
 
         for (int i = 0; lastIdx < alphabetSize; ++i) {
@@ -404,16 +404,17 @@ public:
     std::set<char> alphabet;
 
     int cache_capacity;
+
     UINT128* cache;
     int* leftRightIdx;
     std::unordered_set<UINT128> visited;
-    UINT128 posBits, negBits;
 
     unsigned long allREs;
     // Index of the last free position in the language cache
     int lastIdx;
     bool isFound;
     bool onTheFly;
+    UINT128 posBits, negBits;
 };
 
 // Adding parentheses if needed
@@ -479,8 +480,8 @@ Result REI(const unsigned short* costFun, const unsigned short maxCost, const st
 
     const int cache_capacity = 200000000;
 
-    CostIntervals intervals(maxCost);
     ParesyContext context(cache_capacity, posBits, negBits);
+    CostIntervals intervals(maxCost);
 
     std::string RE;
 
@@ -500,7 +501,7 @@ Result REI(const unsigned short* costFun, const unsigned short maxCost, const st
         // Once it uses a previous cost that is not fully stored, it should continue as the last round
         if (context.onTheFly) {
             int dif = cost - shortageCost;
-            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs. or ) lastRound = true;
+            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs. or || dif == costs.alpha + costs.and ) lastRound = true;
         }
 
         //Question Mark
@@ -547,23 +548,23 @@ Result REI(const unsigned short* costFun, const unsigned short maxCost, const st
             auto [rstart, rend] = intervals.Interval(cost - i - costs.concat);
             LOG_OP(context, cost, to_string(Opreation::Concatenate), 2 * (rend - rstart) * (lend - lstart))
 
-                for (int l = lstart; l < lend; ++l) {
-                    UINT128 left = context.cache[l];
-                    for (int r = rstart; r < rend; ++r) {
+            for (int l = lstart; l < lend; ++l) {
+                UINT128 left = context.cache[l];
+                for (int r = rstart; r < rend; ++r) {
 
-                        auto [leftRight, rightLeft] = processConcatenate(guideTable, left, context.cache[r]);
+                    auto [leftRight, rightLeft] = processConcatenate(guideTable, left, context.cache[r]);
 
-                        if (context.insertAndCheck(leftRight, l, r, Opreation::Concatenate, RE))
-                        {
-                            intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;
-                        }
+                    if (context.insertAndCheck(leftRight, l, r, Opreation::Concatenate, RE))
+                    {
+                        intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;
+                    }
 
-                        if (context.insertAndCheck(rightLeft, r, l, Opreation::Concatenate, RE))
-                        {
-                            intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;
-                        }
+                    if (context.insertAndCheck(rightLeft, r, l, Opreation::Concatenate, RE))
+                    {
+                        intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;
                     }
                 }
+            }
 
         }
         intervals.end(cost, Opreation::Concatenate) = context.lastIdx;
@@ -574,15 +575,15 @@ Result REI(const unsigned short* costFun, const unsigned short maxCost, const st
             auto [rstart, rend] = intervals.Interval(cost - costs.alpha - costs. or );
             LOG_OP(context, cost, to_string(Opreation::Or), rend - rstart)
 
-                for (int r = rstart; r < rend; ++r) {
+            for (int r = rstart; r < rend; ++r) {
 
-                    UINT128 CS = processOr((UINT128)1, context.cache[r]);
+                UINT128 CS = processOr((UINT128)1, context.cache[r]);
 
-                    if (context.insertAndCheck(CS, -2, r, Opreation::Or, RE))
-                    {
-                        intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
-                    }
+                if (context.insertAndCheck(CS, -2, r, Opreation::Or, RE))
+                {
+                    intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
                 }
+            }
         }
         for (int i = costs.alpha; 2 * i <= cost - costs. or ; ++i) {
 
@@ -590,18 +591,18 @@ Result REI(const unsigned short* costFun, const unsigned short maxCost, const st
             auto [rstart, rend] = intervals.Interval(cost - i - costs. or );
             LOG_OP(context, cost, to_string(Opreation::Or), (rend - rstart) * (lend - lstart))
 
-                for (int l = lstart; l < lend; ++l) {
-                    UINT128 left = context.cache[l];
-                    for (int r = rstart; r < rend; ++r) {
+            for (int l = lstart; l < lend; ++l) {
+                UINT128 left = context.cache[l];
+                for (int r = rstart; r < rend; ++r) {
 
-                        UINT128 CS = processOr(left, context.cache[r]);
+                    UINT128 CS = processOr(left, context.cache[r]);
 
-                        if (context.insertAndCheck(CS, l, r, Opreation::Or, RE))
-                        {
-                            intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
-                        }
+                    if (context.insertAndCheck(CS, l, r, Opreation::Or, RE))
+                    {
+                        intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
                     }
                 }
+            }
         }
         intervals.end(cost, Opreation::Or) = context.lastIdx;
 

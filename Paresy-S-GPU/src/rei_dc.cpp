@@ -1,4 +1,4 @@
-#include "dc_paresy.hpp"
+#include "rei_dc.hpp"
 
 #include <set>
 #include <algorithm>
@@ -59,19 +59,26 @@ using std::tuple;
 }
 
  string paresy_s::detSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
-    const vector<string>& pos, const vector<string>& neg, paresy_s::RecursiveProfileInfo& profileInfo) {
+    const vector<string>& pos, const vector<string>& neg, double maxTime, paresy_s::RecursiveProfileInfo& profileInfo) {
 
-     profileInfo.enter();
+    profileInfo.enter();
+
+#if LOG_LEVEL >= 1
+    printf("split at depth: %u, call count: %u, pos: %u, neg: %u\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
+#endif
 
     if (pos.size() + neg.size() <= static_cast<size_t>(window)) {
-        string output = paresy_s::REI(costFun, maxCost, pos, neg).RE;
+        string output = paresy_s::REI(costFun, maxCost, pos, neg, maxTime).RE;
+#if LOG_LEVEL >= 1
+        printf("paresy output: %s\n", output.c_str());
+#endif
         if (output != "not_found") return output;
     }
 
     auto [p1, p2] = midSplit(pos);
     auto [n1, n2] = midSplit(neg);
 
-    string r11 = detSplit(window, costFun, maxCost, p1, n1, profileInfo);
+    string r11 = detSplit(window, costFun, maxCost, p1, n1, maxTime, profileInfo);
     profileInfo.exit();
 
     auto r11FilterOnP2 = match(p2, r11);
@@ -88,7 +95,7 @@ using std::tuple;
     }
     else {
         vector<string> n2Andr11 = select(n2, r11FilterOnN2);
-        string r12 = detSplit(window, costFun, maxCost, p1, n2Andr11, profileInfo);
+        string r12 = detSplit(window, costFun, maxCost, p1, n2Andr11, maxTime, profileInfo);
         profileInfo.exit();
 
         vector<string> negMinusN2Andr11 = subtract(neg, n2Andr11);
@@ -104,7 +111,7 @@ using std::tuple;
     auto leftFilterOnP2 = match(p2, left);
     vector<string> p2MinusLeft = selectInverse(p2, leftFilterOnP2);
 
-    string r21 = detSplit(window, costFun, maxCost, p2MinusLeft, n1, profileInfo);
+    string r21 = detSplit(window, costFun, maxCost, p2MinusLeft, n1, maxTime, profileInfo);
     profileInfo.exit();
 
     vector<string> p1MinusP2MinusLeft = subtract(pos, p2MinusLeft);
@@ -123,7 +130,7 @@ using std::tuple;
     }
     else {
         vector<string> n2Andr21 = select(n2, r21FilterOnN2);
-        string r22 = detSplit(window, costFun, maxCost, p2MinusLeft, n2Andr21, profileInfo);
+        string r22 = detSplit(window, costFun, maxCost, p2MinusLeft, n2Andr21, maxTime, profileInfo);
         profileInfo.exit();
 
         vector<string> negMinusN2Andr21 = subtract(neg, n2Andr21);

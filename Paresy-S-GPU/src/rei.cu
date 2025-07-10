@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <chrono>
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -17,33 +18,43 @@
 #include <interval_splitter.h>
 #include <bitmask.h>
 
-template <int N>
-using bitmask = paresy_s::bitmask<N>;
-
 template <class T>
 using Pair = paresy_s::Pair<T>;
 
-using CS = bitmask<32>;
+#if CS_BIT_COUNT == 0
+using CS = paresy_s::bitmask<2>;
+#elif CS_BIT_COUNT == 1
+using CS = paresy_s::bitmask<4>;
+#elif CS_BIT_COUNT == 2
+using CS = paresy_s::bitmask<8>;
+#elif CS_BIT_COUNT == 3
+using CS = paresy_s::bitmask<16>;
+#elif CS_BIT_COUNT == 4
+using CS = paresy_s::bitmask<32>;
+#else
+using CS = paresy_s::bitmask<64>;
+#endif
+
 
 #define HD __host__ __device__
 
-#ifndef MEASUREMENT_MODE
+#if LOG_LEVEL == 3
 #define LOG_OP(context, cost, op_string, dif) \
         int tbc = dif; \
-        if (tbc) printf("Cost %-2d | (%s) | AllREs: %-11lu | StoredREs: %-10d | ToBeChecked: %-10d \n", \
+        if (tbc) printf("Cost %-2d | (%s) | AllREs: %-11llu | StoredREs: %-10d | ToBeChecked: %-10d \n", \
             cost, op_string.c_str() ,context.allREs, context.lastIdx, tbc);
 #else
 #define LOG_OP(context, cost, op_string, dif)
 #endif
 
+// ============= Cuda helpers =============
+
 inline
 cudaError_t checkCuda(cudaError_t res) {
-#ifndef MEASUREMENT_MODE
     if (res != cudaSuccess) {
         fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(res));
         assert(res == cudaSuccess);
     }
-#endif
     return res;
 }
 
@@ -58,25 +69,6 @@ size_t getFreeMemory() {
     cudaError_t err = cudaMemGetInfo(&free_mem, &total_mem);
     return free_mem;
 }
-
-// constant memory needs to be global
-__constant__ uint64_t deviceData[64 * 128];
-
-struct Costs
-{
-    int alpha;
-    int question;
-    int star;
-    int concat;
-    int or ;
-    Costs(const unsigned short* costFun) {
-        alpha = costFun[0];
-        question = costFun[1];
-        star = costFun[2];
-        concat = costFun[3];
-        or = costFun[4];
-    }
-};
 
 // ============= guide table =============
 
@@ -114,13 +106,16 @@ std::set<std::string, strComparison> generatingIC(const std::vector<std::string>
     return ic;
 }
 
+// constant memory needs to be global, only 64kb in size
+__constant__ uint64_t deviceData[64 * 128];
+
 class GuideTable {
 public:
 
     class Iterator {
-        CS* ptr;
+        const CS* ptr;
     public:
-        HD Iterator(CS* p) : ptr(p) {}
+        HD Iterator(const CS* p) : ptr(p) {}
 
         HD Pair<CS> operator*() const { return Pair<CS>(*ptr, *(ptr + 1)); }
         HD Iterator& operator++() { ptr += 2; return *this; }
@@ -129,7 +124,7 @@ public:
 
     class RowIterator {
     public:
-        HD RowIterator(CS* data, int gtColumns, int rowIndex) : row(rowIndex), data(data), gtColumns(gtColumns) {}
+        HD RowIterator(const CS* data, int gtColumns, int rowIndex) : row(rowIndex), data(data), gtColumns(gtColumns) {}
         HD Iterator begin() {
             return Iterator(data + row * gtColumns);
         }
@@ -137,7 +132,7 @@ public:
             return Iterator(data + (row + 1) * gtColumns);
         }
     private:
-        CS* data;
+        const CS* data;
         int row;
         int gtColumns;
     };
@@ -148,13 +143,17 @@ public:
         Device(int ICsize, int gtColumns, int alphabetSize, CS* d_Data) : ICsize(ICsize), gtColumns(gtColumns), alphabetSize(alphabetSize), d_Data(d_Data){ }
 
         __device__ RowIterator IterateRow(int rowIndex) const {
+#ifdef GUIDE_TABLE_CONSTANT_MEMORY
+            return RowIterator(reinterpret_cast<CS*>(deviceData), gtColumns, rowIndex);
+#else
             return RowIterator(d_Data, gtColumns, rowIndex);
+#endif
         }
 
         int ICsize;
         int gtColumns;
         int alphabetSize;
-        CS* d_Data;
+        const CS* d_Data;
     };
 
     Device deviceTable() {
@@ -166,12 +165,6 @@ public:
     {
         ICsize = static_cast<int> (gt.size());
         gtColumns = static_cast<int> (gt.back().size());
-
-        if (ICsize > sizeof(CS) * 8) {
-            printf("Your input needs %u bits which exceeds %u bits ", ICsize, sizeof(CS) * 8);
-            printf("(current version).\nPlease use less/shorter words and run the code again.\n");
-            throw std::out_of_range("our input exceeds allowed bits!");
-        }
 
         data = new CS[ICsize * gtColumns];
 
@@ -185,8 +178,10 @@ public:
     GuideTable() : ICsize(0), gtColumns(0), alphabetSize(0), data(nullptr) {}
 
     ~GuideTable() {
-        freeDevice();
-        delete[] data;
+        if (data != nullptr) {
+            delete[] data;
+            freeDevice();
+        }
     }
 
     RowIterator IterateRow(int rowIndex) const {
@@ -201,24 +196,30 @@ private:
     CS* data;
     CS* d_Data;
 
-    __host__ void copyToDevice() {
+    void copyToDevice() {
+
         int bytes = ICsize * gtColumns * sizeof(CS);
 
+#ifdef GUIDE_TABLE_CONSTANT_MEMORY
+        checkCuda(cudaMemcpyToSymbol(deviceData, data, bytes));
+#else
         checkCuda(cudaMalloc(&d_Data, bytes));
         checkCuda(cudaMemcpy(d_Data, data, bytes, cudaMemcpyHostToDevice));
-
-        //checkCuda(cudaMemcpyToSymbol(deviceData, data, bytes));
+#endif
     }
 
-    __host__ void freeDevice() {
-        //uint64_t zeros[64 * 128] = { 0 }; // constant memory is only 64kb
-        //cudaMemcpyToSymbol(deviceData, zeros, sizeof(zeros));
+    void freeDevice() {
 
+#ifdef GUIDE_TABLE_CONSTANT_MEMORY
+        uint64_t zeros[64 * 128] = { 0 }; // constant memory is only 64kb
+        cudaMemcpyToSymbol(deviceData, zeros, sizeof(zeros));
+#else
         checkCuda(cudaFree(d_Data));
+#endif
     }
 };
 
-void generatingGuideTable(GuideTable* guideTable, const std::set<std::string, strComparison>& ic)
+bool generatingGuideTable(GuideTable* guideTable, const std::set<std::string, strComparison>& ic)
 {
     int alphabetSize = -1;
     for (auto& word : ic) {
@@ -251,7 +252,27 @@ void generatingGuideTable(GuideTable* guideTable, const std::set<std::string, st
         gt.push_back(row);
     }
 
+#ifdef GUIDE_TABLE_CONSTANT_MEMORY
+    int tableSize = static_cast<int> (gt.back().size()) * static_cast<int> (gt.size());
+    if (tableSize * sizeof(CS) > 64 * 1024)
+    {
+#if LOG_LEVEL >= 2
+        printf("Your input needs a guide table of size %u bytes which can't fit in constant memory.\n", tableSize * sizeof(CS));
+#endif
+        return false;
+    }
+#endif
+
+    if (gt.size() > sizeof(CS) * 8) {
+#if LOG_LEVEL >= 2
+        printf("Your input needs %u bits which exceeds %u bits ", gt.size(), sizeof(CS) * 8);
+        printf("(current version).\nPlease use less/shorter words and run the code again.\n");
+#endif
+        return false;
+    }
+
     new (guideTable) GuideTable(gt, alphabetSize);
+    return true;
 }
 
 // Generating of the guide table only once for the whole enumeration process
@@ -260,7 +281,8 @@ bool generatingGuideTable(GuideTable& guideTable, CS& posBits, CS& negBits,
 
     std::set<std::string, strComparison> ic = generatingIC(pos, neg);
 
-    generatingGuideTable(&guideTable, ic);
+    if (!generatingGuideTable(&guideTable, ic))
+        return false;
 
     for (auto& p : pos) {
         int wordIndex = distance(ic.begin(), ic.find(p));
@@ -296,31 +318,30 @@ std::string to_string(Opreation op) {
     return "";
 }
 
-__device__ inline CS processQuestion(CS cs) {
+__device__ inline CS processQuestion(const CS& cs) {
     return cs | CS::one();
 }
 
-__device__ inline CS processStar(const GuideTable::Device& guideTable, CS cs) {
+__device__ inline CS processStar(const GuideTable::Device& guideTable, const CS& cs) {
 
-    cs |= CS::one();
+    auto cs1 = cs | CS::one();
     int ix = guideTable.alphabetSize + 1;
     CS c = CS::one() << ix;
 
-    while (ix < guideTable.ICsize) {
-        if (!(cs & c)) {
+    while (ix < guideTable.ICsize) 
+    {
+        if (!(cs1 & c)) {
             for (auto [left, right] : guideTable.IterateRow(ix)) {
-                if ((left & cs) && (right & cs))
-                {
-                    cs |= c; break;
-                }
+                if ((left & cs1) && (right & cs1)) { cs1 |= c; break; }
             }
         }
         c <<= 1; ix++;
     }
-    return cs;
+
+    return cs1;
 }
 
-__device__ inline Pair<CS> processConcatenate(const GuideTable::Device& guideTable, CS left, CS right) {
+__device__ inline Pair<CS> processConcatenate(const GuideTable::Device& guideTable,const CS& left, const CS& right) {
 
     CS cs1 = CS();
     if (left & CS::one()) cs1 |= right;
@@ -336,7 +357,7 @@ __device__ inline Pair<CS> processConcatenate(const GuideTable::Device& guideTab
         if (!(cs1 & c)) {
             for (auto [l, r] : guideTable.IterateRow(ix))
                 if ((l & left) && (r & right)) { cs1 |= c; break; }
-        }
+                }
 
         if (!(cs2 & c)) {
             for (auto [l, r] : guideTable.IterateRow(ix))
@@ -346,14 +367,14 @@ __device__ inline Pair<CS> processConcatenate(const GuideTable::Device& guideTab
         c <<= 1; ix++;
     }
 
-    return Pair<CS>(cs1, cs2);
+    return { cs1, cs2 };
 }
 
-__device__ inline CS processOr(CS left, CS right) {
+__device__ inline CS processOr(const CS& left, const CS& right) {
     return left | right;
 }
 
-__device__ inline CS processAnd(CS left, CS right) {
+__device__ inline CS processAnd(const CS& left, const  CS& right) {
     return left & right;
 }
 
@@ -406,8 +427,10 @@ struct DeviceHashSet
     __host__ DeviceHashSet(int capacity) : cHashSet(capacity), iHashSet(capacity) {}
 
     inline __device__ bool insert(uint64_t high, uint64_t low) {
-        const auto group = warpcore::cg::tiled_partition<1>
-            (warpcore::cg::this_thread_block());
+        return insert(high, low, warpcore::cg::tiled_partition<1>(warpcore::cg::this_thread_block()));
+    }
+
+    inline __device__ bool insert(uint64_t high, uint64_t low, const warpcore::cg::thread_block_tile<1>& group) {
         int H = cHashSet.insert(high, group);
         int L = cHashSet.insert(low, group);
         H = (H > 0) ? H : -H;
@@ -440,9 +463,18 @@ __global__ void hashSetsInitialisation(DeviceHashSet d_visited, CS* d_langCache,
 class Context {
 public:
 
+    static Pair<uint64_t> getCacheCapacity(uint64_t memory_size, double tempRatio = 0.5) {
+
+        uint64_t cacheCapacity = memory_size / (
+            (sizeof(CS) + sizeof(int) * 2 + sizeof(uint64_t) * 4) +
+            (sizeof(CS) + sizeof(int) * 2) * tempRatio);
+
+        return { cacheCapacity , (uint64_t)(cacheCapacity * tempRatio) };
+    }
+
     Context(int cache_capacity, int temp_cache_capacity, CS posBits, CS negBits)
         : cache_capacity(cache_capacity), temp_cache_capacity(temp_cache_capacity), posBits(posBits), negBits(negBits),
-        d_visited(2 * cache_capacity) {
+        d_visited(cache_capacity * 2) {
 
         FinalREIdx = new int[1]; *FinalREIdx = -1;
 
@@ -482,8 +514,6 @@ public:
             : d_langCache(context.d_langCache),
             d_temp_langCache(context.d_temp_langCache),
             d_visited(context.d_visited),
-            d_leftIdx(context.d_leftIdx),
-            d_rightIdx(context.d_rightIdx),
             d_temp_leftIdx(context.d_temp_leftIdx),
             d_temp_rightIdx(context.d_temp_rightIdx),
             d_FinalREIdx(context.d_FinalREIdx),
@@ -493,11 +523,9 @@ public:
         {
         }
 
-        CS* d_langCache;
+        const CS* d_langCache;
         CS* d_temp_langCache;
         DeviceHashSet d_visited;
-        int* d_leftIdx;
-        int* d_rightIdx;
         int* d_temp_leftIdx;
         int* d_temp_rightIdx;
         int* d_FinalREIdx;
@@ -505,7 +533,11 @@ public:
         bool onTheFly;
         CS posBits, negBits;
 
-        __device__ inline void insert(CS CS, int tid, int ldx, int rdx = 0 ) {
+        __device__ inline void insert(const CS& CS, int tid, int ldx, int rdx = 0) {
+            insert(CS, tid, ldx, rdx, warpcore::cg::tiled_partition<1>(warpcore::cg::this_thread_block()));
+        }
+
+        __device__ inline void insert(const CS& CS, int tid, int ldx, int rdx, const warpcore::cg::thread_block_tile<1>& group) {
 
             if (onTheFly) {
 
@@ -590,7 +622,6 @@ public:
     }
 
     void printLangCahce() {
-        return;
         auto cache = new CS[lastIdx];
         checkCuda(cudaMemcpy(cache, d_langCache, sizeof(CS) * lastIdx, cudaMemcpyDeviceToHost));
         for (size_t i = 0; i < lastIdx; i++) { cache[i].print(); }
@@ -617,6 +648,9 @@ public:
         if (lastIdx + numberOfNewUniqueREs > cache_capacity) {
             N = cache_capacity - lastIdx;
             onTheFly = true;
+#if LOG_LEVEL >= 2
+            printf("==== switch to \"OnTheFly\" ====\n");
+#endif
         }
         else N = numberOfNewUniqueREs;
 
@@ -641,9 +675,9 @@ public:
     int* d_temp_rightIdx;
     int* d_FinalREIdx;
 
-    unsigned long allREs;
+    uint64_t allREs;
     // Index of the last free position in the language cache
-    int lastIdx;
+    uint64_t lastIdx;
     bool isFound;
     bool onTheFly;
     int* FinalREIdx;
@@ -657,7 +691,9 @@ __global__ void QuestionMark(Pair<int> interval, Context::Device context)
     if (tid < (interval.right - interval.left)) {
 
         auto CS = context.d_langCache[(interval.left + tid)];
+
         CS = processQuestion(CS);
+
         context.insert(CS, tid, interval.left + tid);
     }
 }
@@ -669,7 +705,9 @@ __global__ void Star(Pair<int> interval, GuideTable::Device guideTable, Context:
     if (tid < (interval.right - interval.left)) {
 
         auto CS = context.d_langCache[(interval.left + tid)];
+
         CS = processStar(guideTable, CS);
+
         context.insert(CS, tid, interval.left + tid);
     }
 }
@@ -680,6 +718,8 @@ __global__ void Concat(Pair<int> lInterval, Pair<int> rInterval, GuideTable::Dev
 
     if (tid < (lInterval.right - lInterval.left) * (rInterval.right - rInterval.left)) {
 
+        const auto group = warpcore::cg::tiled_partition<1>(warpcore::cg::this_thread_block());
+
         int ldx = lInterval.left + tid / (rInterval.right - rInterval.left);
         CS lCS = context.d_langCache[ldx];
 
@@ -688,8 +728,8 @@ __global__ void Concat(Pair<int> lInterval, Pair<int> rInterval, GuideTable::Dev
 
         auto [lr, rl] = processConcatenate(guideTable, lCS, rCS);
 
-        context.insert(lr, tid * 2, ldx, rdx);
-        context.insert(rl, tid * 2 + 1, rdx, ldx);
+        context.insert(lr, tid * 2, ldx, rdx, group);
+        context.insert(rl, tid * 2 + 1, rdx, ldx, group);
     }
 }
 
@@ -700,7 +740,9 @@ __global__ void OrEpsilon(Pair<int> interval, Context::Device context)
         if (tid < (interval.right - interval.left)) {
 
             auto CS = context.d_langCache[(interval.left + tid)];
+
             CS = processOr(CS, CS::one());
+
             context.insert(CS, tid, interval.left + tid);
         }
 }
@@ -851,18 +893,47 @@ std::string REtoString(const Context& context,const CostIntervals& intervals)
     return toString(INT_MAX - 1, indicesMap, context.alphabet, intervals);
 }
 
-paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned short maxCost, const std::vector<std::string>& pos, const std::vector<std::string>& neg) {
+// ============= REI =============
+
+struct Costs
+{
+    int alpha;
+    int question;
+    int star;
+    int concat;
+    int or ;
+    Costs(const unsigned short* costFun) {
+        alpha = costFun[0];
+        question = costFun[1];
+        star = costFun[2];
+        concat = costFun[3];
+        or = costFun[4];
+    }
+};
+
+bool checkTime(std::chrono::steady_clock::time_point startTime, double maxTime) {
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - startTime).count();
+    return duration >= maxTime;
+}
+
+paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned short maxCost, const std::vector<std::string>& pos, const std::vector<std::string>& neg, double maxTime) {
+
+    auto startTime = std::chrono::steady_clock::now();
 
     Costs costs(costFun);
 
     GuideTable guideTable;
     CS posBits{}, negBits{};
-    generatingGuideTable(guideTable, posBits, negBits, pos, neg);
+    if (!generatingGuideTable(guideTable, posBits, negBits, pos, neg))
+    { return paresy_s::Result("not_found", 0, 0, 0); }
 
-    uint64_t available_memory = getFreeMemory() / 2;
+    uint64_t available_memory = (getFreeMemory() * 4) / 5; // 80% for the free memory
+    auto [ langCacheCapacity, temp_langCacheCapacity] = Context::getCacheCapacity(available_memory);
 
-    const int langCacheCapacity = (available_memory * 3) / (4 * sizeof(CS)); // 3/4 of available_memory
-    const int temp_langCacheCapacity = available_memory / (4 * sizeof(CS));  // 1/4 of available_memory
+#if LOG_LEVEL >= 2
+    printf("The amount of memory that will be allocated: %lf mb.\n", available_memory / ((double)1024 * 1024));
+    printf("The max amount of RE that will be stored: %llu\n", langCacheCapacity);
+#endif
 
     Context context(langCacheCapacity, temp_langCacheCapacity, posBits, negBits);
     CostIntervals intervals(maxCost);
@@ -881,7 +952,6 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
 
     int cost{};
 
-    auto deviceContext = context.deviceContext();
     auto deviceGuideTable = guideTable.deviceTable();
 
     for (cost = costs.alpha + 1; cost <= maxCost; ++cost) {
@@ -891,7 +961,6 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
             int dif = cost - shortageCost;
             if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs. or ) lastRound = true;
         }
-
         
         // Question mark
         if (cost >= costs.alpha + costs.question && useQuestionOverOr) {
@@ -902,11 +971,13 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 int N = (interval.right - interval.left);
                 LOG_OP(context, cost, to_string(Opreation::Question), N)
                 int qBlc = (N + thread_count - 1) / thread_count;
-                QuestionMark<<<qBlc, thread_count>>> (interval, deviceContext);
+                QuestionMark<<<qBlc, thread_count>>> (interval, context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N)) {
                     intervals.end(cost, Opreation::Question) = INT_MAX; goto exitEnumeration;
                 }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
         intervals.end(cost, Opreation::Question) = context.lastIdx;
@@ -920,11 +991,13 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 int N = (interval.right - interval.left);
                 LOG_OP(context, cost, to_string(Opreation::Star), N)
                     int qBlc = (N + thread_count - 1) / thread_count;
-                Star<<<qBlc, thread_count>>>(interval, deviceGuideTable, deviceContext);
+                Star<<<qBlc, thread_count>>>(interval, deviceGuideTable, context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N)) {
                     intervals.end(cost, Opreation::Star) = INT_MAX; goto exitEnumeration;
                 }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
         intervals.end(cost, Opreation::Star) = context.lastIdx;
@@ -942,11 +1015,13 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 LOG_OP(context, cost, to_string(Opreation::Concatenate), 2 * N)
 
                 int qBlc = (N + thread_count - 1) / thread_count;
-                Concat<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), deviceGuideTable, deviceContext);
+                Concat<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), deviceGuideTable, context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N * 2)) {
                     intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;
                 }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
         intervals.end(cost, Opreation::Concatenate) = context.lastIdx;
@@ -961,11 +1036,13 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 int N = (interval.right - interval.left);
                 LOG_OP(context, cost, to_string(Opreation::Or), N)
                 int qBlc = (N + thread_count - 1) / thread_count;
-                OrEpsilon<<<qBlc, thread_count >>>(interval, deviceContext);
+                OrEpsilon<<<qBlc, thread_count >>>(interval, context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N)) {
                     intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
                 }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
         for (int i = costs.alpha; 2 * i <= cost - costs. or ; ++i) {
@@ -979,11 +1056,13 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 LOG_OP(context, cost, to_string(Opreation::Or), N)
 
                 int qBlc = (N + thread_count - 1) / thread_count;
-                Or<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), deviceContext);
+                Or<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N)) {
                     intervals.end(cost, Opreation::Or) = INT_MAX; goto exitEnumeration;
                 }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
         intervals.end(cost, Opreation::Or) = context.lastIdx;
@@ -996,11 +1075,21 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
 
     if (context.isFound)
     {
+#if LOG_LEVEL >= 2
+        if(context.onTheFly){ printf("\"OnTheFly\" mode has been used\n"); }
+#endif
         RE = REtoString(context, intervals);
         return Result(RE, cost, context.allREs, guideTable.ICsize);
     }
 
-    if (cost == maxCost + 1) cost--;
+#if LOG_LEVEL >= 2
+    if (checkTime(startTime, maxTime))
+    { printf("exceeded the time limit %lf\n", maxTime); }
+    else if (cost > maxCost)
+    { printf("Max cost exceeded!\n"); }
+    else 
+    { printf("memory limit exceeded, %lf mb of memory has been used.\n", available_memory/((double)1024*1024)); }
+#endif
 
-    return paresy_s::Result("not_found", cost, context.allREs, guideTable.ICsize);
+    return paresy_s::Result("not_found", cost > maxCost ? maxCost : cost, context.allREs, guideTable.ICsize);
 }

@@ -7,7 +7,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # only work if BATCH_MODE is off, 
 # this is used for quick testing to write examples inside the editor
-# add_definitions(-DHARD_CODED_INPUT)
+add_definitions(-DHARD_CODED_INPUT)
 
 function(define_enum_option VAR_NAME DEFAULT_VALUE DESCRIPTION VALUES INDEX)
     # Create the cached variable
@@ -31,6 +31,8 @@ function(define_enum_option VAR_NAME DEFAULT_VALUE DESCRIPTION VALUES INDEX)
     endif()
     set(${INDEX} ${_index} PARENT_SCOPE)
 endfunction()
+
+message(STATUS "=================== Options ===================")
 
 option(GUIDE_TABLE_CONSTANT_MEMORY "Allocate the guide table on constant memory" OFF)
 message(STATUS "GUIDE_TABLE_CONSTANT_MEMORY is set to: ${GUIDE_TABLE_CONSTANT_MEMORY}")
@@ -64,6 +66,8 @@ define_enum_option(
     "128;256;512;1024;2048;4096"
     CS_BIT_COUNT_INDEX
 )
+
+message(STATUS "===============================================")
 
 set(HEADERS
 include/bitmask.h 

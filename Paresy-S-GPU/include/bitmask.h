@@ -292,10 +292,10 @@ namespace paresy_s
             printf("from high to low:");
             for (int i = N - 1; i >= 0; --i) {
                 if (i == 0) {
-                    printf(" %llu\n", data[i]);
+                    printf(" %lu\n", data[i]);
                 }
                 else {
-                    printf(" %llu,", data[i]);
+                    printf(" %lu,", data[i]);
                 }
             }
         }

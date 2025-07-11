@@ -265,7 +265,7 @@ bool generatingGuideTable(GuideTable* guideTable, const std::set<std::string, st
 
     if (gt.size() > sizeof(CS) * 8) {
 #if LOG_LEVEL >= 2
-        printf("Your input needs %u bits which exceeds %u bits ", gt.size(), sizeof(CS) * 8);
+        printf("Your input needs %lu bits which exceeds %lu bits ", gt.size(), sizeof(CS) * 8);
         printf("(current version).\nPlease use less/shorter words and run the code again.\n");
 #endif
         return false;
@@ -901,13 +901,13 @@ struct Costs
     int question;
     int star;
     int concat;
-    int or ;
+    int alternation; //or
     Costs(const unsigned short* costFun) {
         alpha = costFun[0];
         question = costFun[1];
         star = costFun[2];
         concat = costFun[3];
-        or = costFun[4];
+        alternation = costFun[4];
     }
 };
 
@@ -932,7 +932,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
 
 #if LOG_LEVEL >= 2
     printf("The amount of memory that will be allocated: %lf mb.\n", available_memory / ((double)1024 * 1024));
-    printf("The max amount of RE that will be stored: %llu\n", langCacheCapacity);
+    printf("The max amount of RE that will be stored: %lu\n", langCacheCapacity);
 #endif
 
     Context context(langCacheCapacity, temp_langCacheCapacity, posBits, negBits);
@@ -948,7 +948,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
     int thread_count = 256;
 
     int shortageCost = -1; bool lastRound = false;
-    bool useQuestionOverOr = costs.alpha + costs.or >= costs.question;
+    bool useQuestionOverOr = costs.alpha + costs.alternation >= costs.question;
 
     int cost{};
 
@@ -959,7 +959,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
         // Once it uses a previous cost that is not fully stored, it should continue as the last round
         if (context.onTheFly) {
             int dif = cost - shortageCost;
-            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs. or ) lastRound = true;
+            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs.alternation) lastRound = true;
         }
         
         // Question mark
@@ -1027,9 +1027,9 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
         intervals.end(cost, Opreation::Concatenate) = context.lastIdx;
 
         //Or
-        if (!useQuestionOverOr && cost >= 2 * costs.alpha + costs.or ) {
+        if (!useQuestionOverOr && cost >= 2 * costs.alpha + costs.alternation) {
 
-            auto [start, end] = intervals.Interval(cost - costs.alpha - costs.or);
+            auto [start, end] = intervals.Interval(cost - costs.alpha - costs.alternation);
 
             for (auto interval : paresy_s::splitInterval(start, end, temp_langCacheCapacity))
             {
@@ -1045,10 +1045,10 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
             }
         }
-        for (int i = costs.alpha; 2 * i <= cost - costs. or ; ++i) {
+        for (int i = costs.alpha; 2 * i <= cost - costs.alternation; ++i) {
 
             auto [lstart, lend] = intervals.Interval(i);
-            auto [rstart, rend] = intervals.Interval(cost - i - costs.or);
+            auto [rstart, rend] = intervals.Interval(cost - i - costs.alternation);
 
             for (auto interval : paresy_s::splitInterval(rstart, rend, temp_langCacheCapacity / (lend - lstart)))
             {

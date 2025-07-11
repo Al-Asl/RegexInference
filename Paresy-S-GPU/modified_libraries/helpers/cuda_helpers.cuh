@@ -79,12 +79,85 @@
 
 // redefinition of CUDA atomics for common cstdint types
 #ifdef __CUDACC__
-   
+#ifndef _WIN32
+    // CAS
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicCAS(
+        std::uint64_t* address,
+        std::uint64_t compare,
+        std::uint64_t val)
+    {
+        return atomicCAS(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(compare),
+            static_cast<unsigned long long int>(val));
+    }
 
+    // Add
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicAdd(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicAdd(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
+
+    // Exch
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicExch(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicExch(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
+#endif
     #if __CUDA_ARCH__ > 300
+#ifndef _WIN32
+    // Min
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicMin(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicMin(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
 
-    
+    // Max
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicMax(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicMax(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
 
+    // AND
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicAnd(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicAnd(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
+
+    // OR
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicOr(std::uint64_t* address, std::uint64_t val)
+    {
+        return atomicOr(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
+
+    // XOR
+    DEVICEQUALIFIER INLINEQUALIFIER
+    std::uint64_t atomicXor(std::uint64_t* address, uint64_t val)
+    {
+        return atomicXor(
+            reinterpret_cast<unsigned long long int*>(address),
+            static_cast<unsigned long long int>(val));
+    }
+#endif
     #endif
 
     DEVICEQUALIFIER INLINEQUALIFIER

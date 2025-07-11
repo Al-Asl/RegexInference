@@ -93,7 +93,7 @@ int runOnFile(int argc, char* argv[])
     if (argc != 10) {
         printf("Arguments should be in the form of\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s <dir_address> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
+        printf("%s <file_address> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <maxCost>\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         printf("\nFor example\n");
         printf("-----------------------------------------------------------------\n");

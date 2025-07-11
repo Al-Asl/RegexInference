@@ -68,7 +68,7 @@ int runOnDirectory(int argc, char* argv[])
         auto profileInfo = paresy_s::RecursiveProfileInfo();
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
+        auto result = paresy_s::randSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
         auto stop = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
@@ -158,7 +158,7 @@ int runOnFile(int argc, char* argv[])
     costFun[3] = 1;
     costFun[4] = 1;
     const unsigned short maxCost = 500;
-    const unsigned short window_size = 100;
+    const unsigned short window_size = 10;
     double max_time = 60;
 
     std::vector<std::string> pos, neg;
@@ -174,7 +174,7 @@ int runOnFile(int argc, char* argv[])
     auto start = std::chrono::high_resolution_clock::now();
 
     paresy_s::RecursiveProfileInfo profileInfo;
-    auto result = paresy_s::detSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
+    auto result = paresy_s::randSplit(window_size, costFun, maxCost, pos, neg, max_time, profileInfo);
 
     auto stop = std::chrono::high_resolution_clock::now();
 

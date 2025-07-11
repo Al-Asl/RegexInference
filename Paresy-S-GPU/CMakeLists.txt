@@ -7,7 +7,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # only work if BATCH_MODE is off, 
 # this is used for quick testing to write examples inside the editor
-add_definitions(-DHARD_CODED_INPUT)
+# add_definitions(-DHARD_CODED_INPUT)
 
 function(define_enum_option VAR_NAME DEFAULT_VALUE DESCRIPTION VALUES INDEX)
     # Create the cached variable
@@ -110,7 +110,7 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 # cuda section
-set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 75)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES ALL)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 target_link_libraries(${PROJECT_NAME} PRIVATE cuda cudart)
 if(PROFILE_MODE)

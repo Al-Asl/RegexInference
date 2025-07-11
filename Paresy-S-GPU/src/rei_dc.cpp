@@ -2,6 +2,7 @@
 
 #include <set>
 #include <algorithm>
+#include <random>
 #include <rei.h>
 #include <regex_match.hpp>
 
@@ -148,3 +149,121 @@ using std::tuple;
 
     return "(" + left + ")+(" + right + ")";
 }
+
+ vector<string> randomSample(const vector<string>& input, size_t sampleSize, unsigned int seed = 0) {
+     vector<string> result;
+
+     if (sampleSize >= input.size()) {
+         return input;
+     }
+
+     static std::mt19937 rng(seed);
+     result.reserve(sampleSize);
+     sample(input.begin(), input.end(), back_inserter(result), sampleSize, rng);
+     return result;
+ }
+
+ string paresy_s::randSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
+     const vector<string>& pos, const vector<string>& neg, double maxTime, paresy_s::RecursiveProfileInfo& profileInfo) {
+
+    profileInfo.enter();
+
+#if LOG_LEVEL >= 1
+    printf("split at depth: %u, call count: %u, pos: %u, neg: %u\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
+#endif
+
+    int seed = 0;
+    int win = window;
+
+    string r11;
+
+    while (true) {
+        vector<string> p1, n1;
+        if (pos.size() + neg.size() <= static_cast<size_t>(win)) {
+            p1 = pos;
+            n1 = neg;
+        }
+        else {
+            if (pos.size() <= win / 2) {
+                p1 = pos;
+                n1 = randomSample(neg, win - p1.size(), seed);
+            }
+            else if (neg.size() <= win / 2) {
+                n1 = neg;
+                p1 = randomSample(pos, win - n1.size(), seed);
+            }
+            else {
+                p1 = randomSample(pos, win / 2, seed);
+                n1 = randomSample(neg, win - p1.size(), seed);
+            }
+        }
+
+        string output = paresy_s::REI(costFun, maxCost, p1, n1, maxTime).RE;
+    #if LOG_LEVEL >= 1
+        printf("paresy output: %s\n", output.c_str());
+    #endif
+
+        if (output != "not_found")
+        { r11 = output; break; }
+        else
+        { win /= 2; }
+    }
+
+    auto r11FilterOnP = match(pos, r11);
+    auto r11FilterOnN = match(neg, r11);
+
+    auto p2 = selectInverse(pos, r11FilterOnP);
+    auto n2 = select(neg, r11FilterOnN);
+
+    auto p1 = subtract(pos, p2);
+    auto n1 = subtract(neg, n2);
+
+    if (p2.size() == 0 && n2.size() == 0)
+        return r11;
+
+    string left;
+    if (n2.size() == 0)
+        left = r11;
+    else
+    {
+        auto r12 = randSplit(window, costFun, maxCost, p1, n2, maxTime, profileInfo);
+        profileInfo.exit();
+
+        if (matchesNone(n1, r12))
+            left = r12;
+        else {
+            left = "(" + r11 + ")&(" + r12 + ")";
+            if (matchesAll(p2, left))
+                return left;
+
+        }
+    }
+
+    auto r21 = randSplit(window, costFun, maxCost, p2, n1, maxTime, profileInfo);
+    profileInfo.exit();
+
+    bool r21AcceptsTheWholeP1 = matchesAll(p1, r21);
+    bool r21RejectsTheWholeN2 = matchesNone(n2, r21);
+
+    if (r21AcceptsTheWholeP1 && r21RejectsTheWholeN2)
+        return r21;
+
+    string right;
+    if (r21RejectsTheWholeN2)
+        right = r21;
+    else
+    {
+        auto r22 = randSplit(window, costFun, maxCost, p2, n2, maxTime, profileInfo);
+        profileInfo.exit();
+
+        if (matchesNone(n1, r22))
+            right = r22;
+        else
+        {
+            right = "(" + r21 + ")&(" + r22 + ")";
+            if (matchesAll(p1, right))
+                return right;
+        }
+    }
+    return "(" + left + ")|(" + right + ")";
+ }

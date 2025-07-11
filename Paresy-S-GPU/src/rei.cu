@@ -932,7 +932,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
 
 #if LOG_LEVEL >= 2
     printf("The amount of memory that will be allocated: %lf mb.\n", available_memory / ((double)1024 * 1024));
-    printf("The max amount of RE that will be stored: %lu\n", langCacheCapacity);
+    printf("The max amount of RE that will be stored: %lu. The ICSize is %u\n", langCacheCapacity, guideTable.ICsize);
 #endif
 
     Context context(langCacheCapacity, temp_langCacheCapacity, posBits, negBits);

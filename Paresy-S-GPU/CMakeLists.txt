@@ -110,7 +110,7 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 # cuda section
-set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES ALL)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 70;75;80;89)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 target_link_libraries(${PROJECT_NAME} PRIVATE cuda cudart)
 if(PROFILE_MODE)

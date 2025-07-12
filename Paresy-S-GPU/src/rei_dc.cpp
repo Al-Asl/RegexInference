@@ -198,6 +198,9 @@ using std::tuple;
             }
         }
 
+    #if LOG_LEVEL >= 1
+        printf("running paresy with pos %llu, neg %llu\n",pos.size(), neg.size());
+    #endif
         string output = paresy_s::REI(costFun, maxCost, p1, n1, maxTime).RE;
     #if LOG_LEVEL >= 1
         printf("paresy output: %s\n", output.c_str());

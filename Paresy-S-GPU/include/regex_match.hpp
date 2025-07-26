@@ -19,43 +19,43 @@ public:
 };
 
 class Char : public Regex {
-    char c;
 public:
+    char c;
      Char(char c);
      bool match(const string& word) const override;
 };
 
 class Or : public Regex {
-    shared_ptr<Regex> left, right;
 public:
+    shared_ptr<Regex> left, right;
      Or(shared_ptr<Regex> l, shared_ptr<Regex> r);
      bool match(const string& word) const override;
 };
 
 class And : public Regex {
-    shared_ptr<Regex> left, right;
 public:
+    shared_ptr<Regex> left, right;
      And(shared_ptr<Regex> l, shared_ptr<Regex> r);
      bool match(const string& word) const override;
 };
 
 class Star : public Regex {
-    shared_ptr<Regex> node;
 public:
+    shared_ptr<Regex> node;
      Star(shared_ptr<Regex> n);
      bool match(const string& word) const override;
 };
 
 class Optional : public Regex {
-    shared_ptr<Regex> node;
 public:
+    shared_ptr<Regex> node;
      Optional(shared_ptr<Regex> n);
      bool match(const string& word) const override;
 };
 
 class Concat : public Regex {
-    shared_ptr<Regex> left, right;
 public:
+    shared_ptr<Regex> left, right;
      Concat(shared_ptr<Regex> l, shared_ptr<Regex> r);
      bool match(const string& word) const override;
 };

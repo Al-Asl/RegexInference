@@ -1,24 +1,20 @@
 #include "regex_match.hpp"
 
-// Char
  Char::Char(char c) : c(c) {}
  bool Char::match(const string& word) const {
     return word.size() == 1 && word[0] == c;
 }
 
-// Or
  Or::Or(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
  bool Or::match(const string& word) const {
     return left->match(word) || right->match(word);
 }
 
-// And
  And::And(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
  bool And::match(const string& word) const {
     return left->match(word) && right->match(word);
 }
 
-// Star
  Star::Star(shared_ptr<Regex> n) : node(n) {}
  bool Star::match(const string& word) const {
     if (word.empty()) return true;
@@ -34,13 +30,11 @@
     return false;
 }
 
-// Optional
  Optional::Optional(shared_ptr<Regex> n) : node(n) {}
  bool Optional::match(const string& word) const {
     return word.empty() || node->match(word);
 }
 
-// Concat
  Concat::Concat(shared_ptr<Regex> l, shared_ptr<Regex> r) : left(l), right(r) {}
  bool Concat::match(const string& word) const {
     for (size_t i = 0; i <= word.size(); ++i) {
@@ -53,7 +47,6 @@
     return false;
 }
 
-// Parser
  Parser::Parser(const string& s) : regex(s), pos(0) {}
 
  char Parser::peek() {
@@ -122,7 +115,6 @@
     }
 }
 
-// Match function
  bool match(const string& pattern, const string& word) {
     Parser parser(pattern);
     shared_ptr<Regex> tree = parser.parse();

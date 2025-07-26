@@ -5,7 +5,7 @@ project(Paresy-S LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 17)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# only work if BATCH_MODE is off, 
+# only work if EVALUATION_MODE is off, 
 # this is used for quick testing to write examples inside the editor
 # add_definitions(-DHARD_CODED_INPUT)
 
@@ -37,8 +37,8 @@ message(STATUS "=================== Options ===================")
 option(GUIDE_TABLE_CONSTANT_MEMORY "Allocate the guide table on constant memory" OFF)
 message(STATUS "GUIDE_TABLE_CONSTANT_MEMORY is set to: ${GUIDE_TABLE_CONSTANT_MEMORY}")
 
-option(BATCH_MODE "Process a whole directory" OFF)
-message(STATUS "BATCH_MODE is set to: ${BATCH_MODE}")
+option(EVALUATION_MODE "Evaluate the result by splitting the examples into training and testing sets." OFF)
+message(STATUS "EVALUATION_MODE is set to: ${EVALUATION_MODE}")
 
 option(PROFILE_MODE "Show the source code when using Nsight Compute" OFF)
 message(STATUS "PROFILE_MODE is set to: ${PROFILE_MODE}")

@@ -65,7 +65,7 @@ using std::tuple;
     profileInfo.enter();
 
 #if LOG_LEVEL >= 1
-    printf("split at depth: %u, call count: %u, pos: %u, neg: %u\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
+    printf("=== split at depth: %u, call count: %u, pos: %u, neg: %u ===\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
 #endif
 
     if (pos.size() + neg.size() <= static_cast<size_t>(window)) {
@@ -169,7 +169,7 @@ using std::tuple;
     profileInfo.enter();
 
 #if LOG_LEVEL >= 1
-    printf("split at depth: %u, call count: %u, pos: %u, neg: %u\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
+    printf("=== split at depth: %u, call count: %u, pos: %u, neg: %u ===\n", profileInfo.maxDepth, profileInfo.callCount, (int)pos.size(), (int)neg.size());
 #endif
 
     int seed = 0;
@@ -199,7 +199,7 @@ using std::tuple;
         }
 
     #if LOG_LEVEL >= 1
-        printf("running paresy with pos %llu, neg %llu\n",pos.size(), neg.size());
+        printf("running paresy with pos %u, neg %u\n",p1.size(), n1.size());
     #endif
         string output = paresy_s::REI(costFun, maxCost, p1, n1, maxTime).RE;
     #if LOG_LEVEL >= 1
@@ -268,5 +268,6 @@ using std::tuple;
                 return right;
         }
     }
-    return "(" + left + ")|(" + right + ")";
+
+    return "(" + left + ")+(" + right + ")";
  }

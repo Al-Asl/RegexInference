@@ -157,7 +157,6 @@ public:
     };
 
     Device deviceTable() {
-        copyToDevice();
         return Device(ICsize, gtColumns, alphabetSize, d_Data);
     }
 
@@ -173,6 +172,7 @@ public:
                 data[i * gtColumns + j] = gt.at(i).at(j);
             }
         }
+        copyToDevice();
     }
 
     GuideTable() : ICsize(0), gtColumns(0), alphabetSize(0), data(nullptr) {}
@@ -945,14 +945,12 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
     intervals.end(costs.alpha, Opreation::Concatenate) = context.lastIdx;
     intervals.end(costs.alpha, Opreation::Or) = context.lastIdx;
 
-    int thread_count = 256;
+    int thread_count = 128;
 
     int shortageCost = -1; bool lastRound = false;
     bool useQuestionOverOr = costs.alpha + costs.alternation >= costs.question;
 
     int cost{};
-
-    auto deviceGuideTable = guideTable.deviceTable();
 
     for (cost = costs.alpha + 1; cost <= maxCost; ++cost) {
 
@@ -991,7 +989,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 int N = (interval.right - interval.left);
                 LOG_OP(context, cost, to_string(Opreation::Star), N)
                     int qBlc = (N + thread_count - 1) / thread_count;
-                Star<<<qBlc, thread_count>>>(interval, deviceGuideTable, context.deviceContext());
+                Star<<<qBlc, thread_count>>>(interval, guideTable.deviceTable(), context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N)) {
                     intervals.end(cost, Opreation::Star) = INT_MAX; goto exitEnumeration;
@@ -1015,7 +1013,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
                 LOG_OP(context, cost, to_string(Opreation::Concatenate), 2 * N)
 
                 int qBlc = (N + thread_count - 1) / thread_count;
-                Concat<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), deviceGuideTable, context.deviceContext());
+                Concat<<<qBlc, thread_count >>>(interval, Pair<int>(lstart, lend), guideTable.deviceTable(), context.deviceContext());
                 checkCuda(cudaGetLastError());
                 if (context.syncAndCheck(N * 2)) {
                     intervals.end(cost, Opreation::Concatenate) = INT_MAX; goto exitEnumeration;

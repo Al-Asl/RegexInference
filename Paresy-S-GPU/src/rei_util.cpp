@@ -1,4 +1,5 @@
 #include <rei_util.hpp>
+#include <regex_match.hpp>
 
 #include <fstream>
 
@@ -62,6 +63,47 @@ bool paresy_s::readFile(const std::string& fileName, std::vector<std::string>& p
     return false;
 
 }
+
+ void  count(shared_ptr<Regex> node, paresy_s::OperationsCount& counts) {
+     if (!node) return;
+     if (auto altr = dynamic_cast<Or*>(node.get())) {
+         counts.alternation++;
+         count(altr->left, counts);
+         count(altr->right, counts);
+     }
+     else if (auto inter = dynamic_cast<And*>(node.get())) {
+         counts.intersection++;
+         count(inter->left, counts);
+         count(inter->right, counts);
+     }
+     else if (auto concat = dynamic_cast<Concat*>(node.get())) {
+         counts.concat++;
+         count(concat->left, counts);
+         count(concat->right, counts);
+     }
+     else if (auto star = dynamic_cast<Star*>(node.get())) {
+         counts.star++;
+         count(star->node, counts);
+     }
+     else if (auto question = dynamic_cast<Optional*>(node.get())) {
+         counts.question++;
+         count(question->node, counts);
+     }
+     else if (auto character = dynamic_cast<Char*>(node.get())) {
+         counts.alpha++;
+     }
+     else {
+         printf("Unknown type\n");
+     }
+ }
+
+ paresy_s::OperationsCount  paresy_s::countOpreations(const string& pattern) {
+     Parser parser(pattern);
+     shared_ptr<Regex> tree = parser.parse();
+     paresy_s::OperationsCount counts;
+     count(tree, counts);
+     return counts;
+ }
 
 //std::vector<std::string> paresy_s::CSToStrings(const std::set<std::string, strComparison>& ic, UINT128 cs) {
 //    std::vector<std::string> res;

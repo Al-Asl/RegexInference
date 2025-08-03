@@ -39,16 +39,16 @@ using std::tuple;
 }
 
  vector<string> selectInverse(const vector<string>& vec, const vector<bool>& filter) {
-    vector<string> res;
-    for (size_t i = 0; i < vec.size(); ++i) {
-        if (!filter[i]) {
-            res.push_back(vec[i]);
-        }
-    }
-    return res;
-}
+     vector<string> res;
+     for (size_t i = 0; i < vec.size(); ++i) {
+         if (!filter[i]) {
+             res.push_back(vec[i]);
+         }
+     }
+     return res;
+ }
 
- vector<string> subtract(vector<string> a, vector<string> b) {
+vector<string> subtract(vector<string> a, vector<string> b) {
     set<string> bSet(b.begin(), b.end());
     vector<string> res;
     for (const auto& n : a) {
@@ -57,6 +57,14 @@ using std::tuple;
         }
     }
     return res;
+}
+
+string intersect(string r1, string r2) {
+    if (r1 == "eps")
+        return "(" + r2 + ")?";
+    else if (r2 == "eps")
+        return "(" + r1 + ")?";
+    return "(" + r1 + ")&(" + r2 + ")";
 }
 
  string paresy_s::detSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
@@ -104,7 +112,7 @@ using std::tuple;
         if (matchesNone(negMinusN2Andr11, r12))
             left = r12;
         else
-            left = "(" + r11 + ")&(" + r12 + ")";
+            left = intersect(r11, r12);
 
         if (matchesAll(p2, left)) return left;
     }
@@ -140,7 +148,7 @@ using std::tuple;
             right = r22;
         }
         else {
-            right = "(" + r21 + ")&(" + r22 + ")";
+            right = intersect(r21, r22);
         }
 
         vector<string> posMinusP2MinusLeft = subtract(pos, p2MinusLeft);
@@ -235,7 +243,7 @@ using std::tuple;
         if (matchesNone(n1, r12))
             left = r12;
         else {
-            left = "(" + r11 + ")&(" + r12 + ")";
+            left = intersect(r11, r12);
             if (matchesAll(p2, left))
                 return left;
 
@@ -263,7 +271,7 @@ using std::tuple;
             right = r22;
         else
         {
-            right = "(" + r21 + ")&(" + r22 + ")";
+            right = intersect(r21, r22);
             if (matchesAll(p1, right))
                 return right;
         }

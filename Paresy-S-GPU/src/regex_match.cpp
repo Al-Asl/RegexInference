@@ -123,12 +123,21 @@
 
  vector<bool> match(const vector<string>& examples, const string& pattern)
  {
-     Parser parser(pattern);
-     shared_ptr<Regex> tree = parser.parse();
-
      vector<bool> res(examples.size());
-     for (int i = 0; i < examples.size(); i++)
-         res[i] = tree->match(examples[i]);
+
+     if (pattern != "eps")
+     {
+         Parser parser(pattern);
+         shared_ptr<Regex> tree = parser.parse();
+
+         for (int i = 0; i < examples.size(); i++)
+             res[i] = tree->match(examples[i]);
+     }
+     else
+     {
+         for (int i = 0; i < examples.size(); i++)
+             res[i] = examples[i].empty();
+     }
 
      return res;
  }

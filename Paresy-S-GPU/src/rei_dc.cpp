@@ -59,12 +59,21 @@ vector<string> subtract(vector<string> a, vector<string> b) {
     return res;
 }
 
-string intersect(string r1, string r2) {
+string intersect(const string& r1, const string& r2) {
+    // make sense for our case
     if (r1 == "eps")
         return "(" + r2 + ")?";
     else if (r2 == "eps")
         return "(" + r1 + ")?";
     return "(" + r1 + ")&(" + r2 + ")";
+}
+
+string alternation(const string& r1, const string& r2) {
+    if (r1 == "eps")
+        return "(" + r2 + ")?";
+    else if (r2 == "eps")
+        return "(" + r1 + ")?";
+    return "(" + r1 + ")+(" + r2 + ")";
 }
 
  string paresy_s::detSplit(int window, const unsigned short* costFun, const unsigned short maxCost,
@@ -155,7 +164,7 @@ string intersect(string r1, string r2) {
         if (matchesAll(posMinusP2MinusLeft, right)) return right;
     }
 
-    return "(" + left + ")+(" + right + ")";
+    return alternation(left, right);
 }
 
  vector<string> randomSample(const vector<string>& input, size_t sampleSize, unsigned int seed = 0) {
@@ -277,5 +286,5 @@ string intersect(string r1, string r2) {
         }
     }
 
-    return "(" + left + ")+(" + right + ")";
+    return alternation(left, right);
  }

@@ -251,12 +251,11 @@ string alternation(const string& r1, const string& r2) {
 
         if (matchesNone(n1, r12))
             left = r12;
-        else {
+        else
             left = intersect(r11, r12);
-            if (matchesAll(p2, left))
-                return left;
 
-        }
+        if (matchesAll(p2, left))
+            return left;
     }
 
     auto r21 = randSplit(window, costFun, maxCost, p2, n1, maxTime, profileInfo);
@@ -279,11 +278,10 @@ string alternation(const string& r1, const string& r2) {
         if (matchesNone(n1, r22))
             right = r22;
         else
-        {
             right = intersect(r21, r22);
-            if (matchesAll(p1, right))
-                return right;
-        }
+
+        if (matchesAll(p1, right))
+            return right;
     }
 
     return alternation(left, right);

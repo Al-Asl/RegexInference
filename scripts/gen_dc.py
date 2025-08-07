@@ -91,20 +91,41 @@ def file_export(file_path, fileHeader, examples):
         f.write("\n--\n")
         f.write('\n'.join(f"\"{word}\"" for word in neg_words))
 
-def generate(num_words, min_length, max_length):
+def reinsert_top_half(a, b):
 
-    benchmarks = read_benchmarks('benchmarks.csv')
+    a_filtered = [x for x in a if x not in b]
+
+    top_half_len = len(a_filtered) // 2
+    if len(b) > top_half_len:
+        top_half_len = len(b)
+    insertion_indices = random.sample(range(top_half_len + 1), len(b))
+    insertion_indices.sort()
+
+    random.shuffle(b)
+
+    for i, index in enumerate(insertion_indices):
+        a_filtered.insert(index, b[i])
+
+    return a_filtered
+
+def generate(benchmarks, benchmarks_dir, output_dir, num_words, min_length, max_length):
 
     for index, benchmark in enumerate(benchmarks):
-
-        file_path = f"./type{benchmark['b_type']}/type{benchmark['b_type']}_exp{benchmark['index']}.txt"
+        
+        file_path = benchmarks_dir + f"type{benchmark['b_type']}/type{benchmark['b_type']}_exp{benchmark['index']}.txt"
 
         examples = read_benchmark_file(file_path)
         pos = generate_matching_words(benchmark['re'], num_words/2, min_length, max_length, examples[0])
         neg = generate_non_matching_words(benchmark['re'], num_words/2, min_length, max_length, examples[1])
+        
+        # re-insert the main examples in top half so they included in the training set
+        pos = reinsert_top_half(pos, examples[0])
+        neg = reinsert_top_half(neg, examples[1])
 
         print(f"Index {index + 1}: number of pos {len(pos)}, number of neg {len(neg)}")
 
-        file_export(f"./dc/dc_exp{index + 1}.txt",f"DC, EXP {index + 1}", (pos,neg))
+        file_export(output_dir + f"dc_exp{index + 1}.txt",f"DC, EXP {index + 1}", (pos,neg))
 
-generate(128, 1, 14)
+benchmarks = read_benchmarks('../Benchmarks/benchmarks.csv')
+
+generate(benchmarks, '../Benchmarks/', '../Benchmarks/dc/', 64, 1, 10)

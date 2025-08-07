@@ -2,19 +2,16 @@
     "extension": "ncu-proj",
     "files": [
         {
-            "path": "type1_exp1.ncu-rep"
+            "path": "type1_exp50_Concat.ncu-rep"
         },
         {
-            "path": "../../../../../Documents/NVIDIA Nsight Compute/type1_exp1.nsys-rep"
+            "path": "type1_exp50_Or.ncu-rep"
         },
         {
-            "path": "type1_exp50.nsys-rep"
+            "path": "type1_exp50_Question.ncu-rep"
         },
         {
-            "path": "type1_exp199.ncu-rep"
-        },
-        {
-            "path": "type1_exp199.nsys-rep"
+            "path": "type1_exp50_Star.ncu-rep"
         }
     ],
     "launcher": {

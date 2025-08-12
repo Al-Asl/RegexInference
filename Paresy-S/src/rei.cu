@@ -299,7 +299,7 @@ bool generatingGuideTable(GuideTable& guideTable, CS& posBits, CS& negBits,
 
 // ============= operations =============
 
-enum class Opreation { Question = 0, Star = 1, Concatenate = 2, Or = 3, Count = 4 };
+enum class Opreation { Question = 0, Star = 1, Concatenate = 2, Or = 3, And = 4, Count = 5 };
 
 std::string to_string(Opreation op) {
     switch (op)
@@ -312,6 +312,8 @@ std::string to_string(Opreation op) {
         return "C";
     case Opreation::Or:
         return "O";
+    case Opreation::And:
+        return "A";
     default:
         break;
     }
@@ -389,7 +391,7 @@ public:
     ~CostIntervals() {
         delete[] startPoints;
     }
-    std::tuple<int, int> Interval(int cost, Opreation start = Opreation::Question, Opreation end = Opreation::Or) const {
+    std::tuple<int, int> Interval(int cost, Opreation start = Opreation::Question, Opreation end = Opreation::And) const {
         return std::make_tuple(this->start(cost, start), this->end(cost, end));
     }
     int& start(int cost, Opreation op) {
@@ -577,7 +579,7 @@ public:
         for (auto& word : pos) for (auto ch : word) alphabet.insert(ch);
         for (auto& word : neg) for (auto ch : word) alphabet.insert(ch);
 
-        LOG_OP((*this), alphaCost, std::string("A"), static_cast<int>(alphabet.size()) + 2)
+        LOG_OP((*this), alphaCost, std::string("Alpha"), static_cast<int>(alphabet.size()) + 2)
 
         // Checking empty
         allREs++;
@@ -765,6 +767,24 @@ __global__ void Or(Pair<int> lInterval, Pair<int> rInterval, Context::Device con
     }
 }
 
+__global__ void And(Pair<int> lInterval, Pair<int> rInterval, Context::Device context)
+{
+    const int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (tid < (lInterval.right - lInterval.left) * (rInterval.right - rInterval.left)) {
+
+        int ldx = lInterval.left + tid / (rInterval.right - rInterval.left);
+        CS lCS = context.d_langCache[ldx];
+
+        int rdx = rInterval.left + tid % (rInterval.right - rInterval.left);
+        CS rCS = context.d_langCache[rdx];
+
+        auto CS = processAnd(lCS, rCS);
+
+        context.insert(CS, tid, ldx, rdx);
+    }
+}
+
 // ============= To String =============
 
 // Finding the left and right indices that makes the final RE to bring to the host later
@@ -802,7 +822,7 @@ std::string bracket(std::string s) {
     for (int i = 0; i < s.length(); i++) {
         if (s[i] == '(') p++;
         else if (s[i] == ')') p--;
-        else if (s[i] == '+' && p <= 0) return "(" + s + ")";
+        else if ((s[i] == '+' || s[i] == '&') && p <= 0) return "(" + s + ")";
     }
     return s;
 }
@@ -844,10 +864,16 @@ std::string toString(
         return bracket(left) + bracket(right);
     }
 
+    if (op == Opreation::Or)
+    {
+        std::string left = toString(indicesMap[index].first, indicesMap, alphabet, intervals);
+        std::string right = toString(indicesMap[index].second, indicesMap, alphabet, intervals);
+        return left + "+" + right;
+    }
+
     std::string left = toString(indicesMap[index].first, indicesMap, alphabet, intervals);
     std::string right = toString(indicesMap[index].second, indicesMap, alphabet, intervals);
-    return left + "+" + right;
-
+    return left + "&" + right;
 }
 
 // Bringing the left and right indices of the RE from device to host
@@ -902,12 +928,14 @@ struct Costs
     int star;
     int concat;
     int alternation; //or
+    int intersection;
     Costs(const unsigned short* costFun) {
         alpha = costFun[0];
         question = costFun[1];
         star = costFun[2];
         concat = costFun[3];
         alternation = costFun[4];
+        intersection = costFun[5];
     }
 };
 
@@ -944,6 +972,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
 
     intervals.end(costs.alpha, Opreation::Concatenate) = context.lastIdx;
     intervals.end(costs.alpha, Opreation::Or) = context.lastIdx;
+    intervals.end(costs.alpha, Opreation::And) = context.lastIdx;
 
     int thread_count = 128;
 
@@ -957,7 +986,7 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
         // Once it uses a previous cost that is not fully stored, it should continue as the last round
         if (context.onTheFly) {
             int dif = cost - shortageCost;
-            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs.alternation) lastRound = true;
+            if (dif == costs.question || dif == costs.star || dif == costs.alpha + costs.concat || dif == costs.alpha + costs.alternation || dif == costs.alpha + costs.intersection) lastRound = true;
         }
         
         // Question mark
@@ -1064,6 +1093,29 @@ paresy_s::Result paresy_s::REI(const unsigned short* costFun, const unsigned sho
             }
         }
         intervals.end(cost, Opreation::Or) = context.lastIdx;
+
+        //And
+        for (int i = costs.alpha; 2 * i <= cost - costs.intersection; ++i) {
+
+            auto [lstart, lend] = intervals.Interval(i);
+            auto [rstart, rend] = intervals.Interval(cost - i - costs.intersection);
+
+            for (auto interval : paresy_s::splitInterval(rstart, rend, temp_langCacheCapacity / (lend - lstart)))
+            {
+                int N = (interval.right - interval.left) * (lend - lstart);
+                LOG_OP(context, cost, to_string(Opreation::And), N)
+
+                    int qBlc = (N + thread_count - 1) / thread_count;
+                And << <qBlc, thread_count >> > (interval, Pair<int>(lstart, lend), context.deviceContext());
+                checkCuda(cudaGetLastError());
+                if (context.syncAndCheck(N)) {
+                    intervals.end(cost, Opreation::And) = INT_MAX; goto exitEnumeration;
+                }
+
+                if (checkTime(startTime, maxTime)) { goto exitEnumeration; }
+            }
+        }
+        intervals.end(cost, Opreation::And) = context.lastIdx;
 
         if (lastRound) break;
         if (context.onTheFly && shortageCost == -1) shortageCost = cost;

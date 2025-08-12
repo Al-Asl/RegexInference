@@ -16,7 +16,7 @@ int calculateCost(const std::string& pattren, unsigned short* costFun) {
     count += counts.star * costFun[2];
     count += counts.concat * costFun[3];
     count += counts.alternation * costFun[4];
-    //count += counts.intersection * costFun[5];
+    count += counts.intersection * costFun[5];
     return count;
 }
 
@@ -28,14 +28,14 @@ int main(int argc, char* argv[]) {
 // -----------------
 
 #ifndef HARD_CODED_INPUT
-    if (argc != 11) {
+    if (argc != 12) {
         printf("Arguments should be in the form of\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s <file_address> <dc_type> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <max_cost>\n", argv[0]);
+        printf("%s <file_address> <dc_type> <window_size> <max_time> <c1> <c2> <c3> <c4> <c5> <c6> <max_cost>\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         printf("\nFor example\n");
         printf("-----------------------------------------------------------------\n");
-        printf("%s ./input 1 12 60 1 1 1 1 1 500\n", argv[0]);
+        printf("%s ./input 1 12 60 1 1 1 1 1 1 500\n", argv[0]);
         printf("-----------------------------------------------------------------\n");
         return 0;
     }
@@ -57,10 +57,10 @@ int main(int argc, char* argv[]) {
     unsigned short window_size = std::atoi(argv[3]);
     unsigned short max_time = std::atoi(argv[4]);
 
-    unsigned short costFun[5];
-    for (int i = 0; i < 5; i++)
+    unsigned short costFun[6];
+    for (int i = 0; i < 6; i++)
         costFun[i] = std::atoi(argv[i + 5]);
-    unsigned short maxCost = std::atoi(argv[10]);
+    unsigned short maxCost = std::atoi(argv[11]);
 #else
 
     std::string text = R"(
@@ -96,6 +96,7 @@ int main(int argc, char* argv[]) {
     costFun[2] = 1;
     costFun[3] = 1;
     costFun[4] = 1;
+    costFun[5] = 1;
     const unsigned short maxCost = 500;
     unsigned short dc_type = 1;
     const unsigned short window_size = 30;
@@ -148,14 +149,14 @@ int main(int argc, char* argv[]) {
 // Reading the input
 // -----------------
 
-if (argc != 12) {
+if (argc != 13) {
     printf("Arguments should be in the form of\n");
     printf("-----------------------------------------------------------------\n");
-    printf("%s <file_address> <dc_type> <window_size> <max_time> <train_ratio> <c1> <c2> <c3> <c4> <c5> <max_cost>\n", argv[0]);
+    printf("%s <file_address> <dc_type> <window_size> <max_time> <train_ratio> <c1> <c2> <c3> <c4> <c5> <c6> <max_cost>\n", argv[0]);
     printf("-----------------------------------------------------------------\n");
     printf("\nFor example\n");
     printf("-----------------------------------------------------------------\n");
-    printf("%s ./input 1 12 60 50 1 1 1 1 1 500\n", argv[0]);
+    printf("%s ./input 1 12 60 50 1 1 1 1 1 1 500\n", argv[0]);
     printf("-----------------------------------------------------------------\n");
     return 0;
 }
@@ -178,10 +179,10 @@ unsigned short window_size = std::atoi(argv[3]);
 unsigned short max_time = std::atoi(argv[4]);
 unsigned short train_ratio = std::atoi(argv[5]);
 
-unsigned short costFun[5];
-for (int i = 0; i < 5; i++)
+unsigned short costFun[6];
+for (int i = 0; i < 6; i++)
     costFun[i] = std::atoi(argv[i + 6]);
-unsigned short maxCost = std::atoi(argv[11]);
+unsigned short maxCost = std::atoi(argv[12]);
 
 // ----------------------------------
 // Regular Expression Inference (REI)

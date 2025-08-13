@@ -8,7 +8,7 @@ For more details on their work, refer to their [paper](https://dl.acm.org/doi/10
 
 ## Introduction
 
-This work aims to explore new approaches for scaling **PaRESy** by sacrificing `minimality` while preserving `precision`. The inference process takes as input a set of positive strings, a set of negative strings, and a cost function. It then produces a regular expression that accepts all positive strings, rejects all negative strings, and remains as close to minimal cost based as possible.
+This work aims to explore new approaches for scaling **PaRESy** by sacrificing `minimality` while preserving `precision`. The inference process takes as input a set of positive strings, a set of negative strings, and a cost function. It then produces a regular expression that accepts all positive strings, rejects all negative strings, and remains as close to minimal cost as possible.
 
 In this version of the work, a simple grammar have been used for the REs:
 

@@ -132,8 +132,8 @@ int main(int argc, char* argv[]) {
 
     printf("\nPositive: "); for (const auto& p : pos) printf("\"%s\" ", p.c_str());
     printf("\nNegative: "); for (const auto& n : neg) printf("\"%s\" ", n.c_str());
-    printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u",
-        costFun[0], costFun[1], costFun[2], costFun[3], costFun[4]);
+    printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u, \"&\"=%u",
+        costFun[0], costFun[1], costFun[2], costFun[3], costFun[4], costFun[5]);
     auto finalCost = calculateCost(result, costFun);
     printf("\nFinal Cost: %u", finalCost);
     printf("\nCall count: %d, Max depth: %d\n", profileInfo.callCount, profileInfo.maxDepth);
@@ -243,8 +243,8 @@ float f1 = precision + recall == 0 ? 0 : 2 * (precision * recall) / (precision +
 
 printf("\nPositive: "); for (const auto& p : pos_train) printf("\"%s\" ", p.c_str());
 printf("\nNegative: "); for (const auto& n : neg_train) printf("\"%s\" ", n.c_str());
-printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u",
-    costFun[0], costFun[1], costFun[2], costFun[3], costFun[4]);
+printf("\nCost Function: \"a\"=%u, \"?\"=%u, \"*\"=%u, \".\"=%u, \"+\"=%u, \"&\"=%u",
+    costFun[0], costFun[1], costFun[2], costFun[3], costFun[4], costFun[5]);
 auto finalCost = calculateCost(result, costFun);
 printf("\nFinal Cost: %u", finalCost);
 printf("\nTruePositive=%u, FalsePositive=%u, TrueNegative=%u, FalseNegative=%u", tp, fp, tn, fn);
